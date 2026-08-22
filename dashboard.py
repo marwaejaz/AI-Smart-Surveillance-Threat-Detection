@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 import cv2, threading, time, os, queue
 from PIL import Image, ImageTk
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from detector import Detector
 from tracker import SuspiciousTracker
@@ -29,11 +32,10 @@ CROWD_THRESHOLD = 4
 
 
 class LoginScreen:
-    """Password gate before main dashboard"""
-    CORRECT_PASSWORD = "admin123"
-
+    """Password gate before main dashboard using environment variables"""
     def __init__(self, on_success):
         self.on_success = on_success
+        self.correct_password = os.getenv("ADMIN_PASSWORD", "admin123")
         self.root = tk.Tk()
         self.root.title("AI Surveillance — Login")
         self.root.configure(bg=BG)
@@ -68,13 +70,12 @@ class LoginScreen:
                   command=self._login).pack(pady=4)
 
     def _login(self):
-        if self.pwd_var.get() == self.CORRECT_PASSWORD:
+        if self.pwd_var.get() == self.correct_password:
             self.root.destroy()
             self.on_success()
         else:
             self.err_lbl.config(text="⚠  Incorrect password. Try again.")
             self.pwd_var.set("")
-
     def run(self):
         self.root.mainloop()
 

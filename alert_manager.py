@@ -1,7 +1,10 @@
+import database
 import time, threading, os, csv, smtplib, cv2
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from dotenv import load_dotenv
+load_dotenv()
 
 try:
     import pygame
@@ -20,7 +23,6 @@ except:
 
 SOUNDS_DIR    = os.path.join(os.path.dirname(__file__), "sounds")
 SNAPSHOTS_DIR = os.path.join(os.path.dirname(__file__), "snapshots")
-LOG_FILE      = os.path.join(os.path.dirname(__file__), "activity_log.csv")
 os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
 
 ALERT_WEAPON     = "weapon"
@@ -30,9 +32,9 @@ ALERT_ZONE       = "zone_breach"
 
 EMAIL_CONFIG = {
     "enabled":   False,
-    "sender":    "your_gmail@gmail.com",
-    "password":  "your_app_password",
-    "receiver":  "alert_receiver@gmail.com",
+    "sender":    os.getenv("SENDER_EMAIL", "your_gmail@gmail.com"),
+    "password":  os.getenv("SENDER_PASSWORD", "your_app_password"),
+    "receiver":  os.getenv("RECEIVER_EMAIL", "alert_receiver@gmail.com"),
     "smtp_host": "smtp.gmail.com",
     "smtp_port": 587,
 }
@@ -110,15 +112,14 @@ class AlertManager:
                 self._tts_busy = False
         threading.Thread(target=_run, daemon=True).start()
 
-    # ── CSV log ───────────────────────────────────────────────────────────────
+    # ── Database log ──────────────────────────────────────────────────────────
     def _init_log(self):
-        if not os.path.exists(LOG_FILE):
-            with open(LOG_FILE, "w", newline="") as f:
-                csv.writer(f).writerow(["timestamp","alert_type","detail","snapshot"])
+        database.init_db()
 
     def _log_csv(self, alert_type, detail, snapshot=""):
-        with open(LOG_FILE, "a", newline="") as f:
-            csv.writer(f).writerow([time.strftime("%Y-%m-%d %H:%M:%S"), alert_type, detail, snapshot])
+    
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        database.log_event(timestamp, alert_type, detail, snapshot)
 
     # ── Snapshot ──────────────────────────────────────────────────────────────
     def save_snapshot(self, frame, label):
