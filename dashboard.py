@@ -70,11 +70,16 @@ class LoginScreen:
                   command=self._login).pack(pady=4)
 
     def _login(self):
-        if self.pwd_var.get() == self.correct_password:
+        raw_input = self.pwd_var.get()
+        if not raw_input or not raw_input.strip():
+            self.err_lbl.config(text="⚠ Password cannot be empty.")
+            return
+        sanitized_password = raw_input.strip()
+        if sanitized_password == self.correct_password:
             self.root.destroy()
             self.on_success()
         else:
-            self.err_lbl.config(text="⚠  Incorrect password. Try again.")
+            self.err_lbl.config(text="⚠ Incorrect password. Try again.")
             self.pwd_var.set("")
     def run(self):
         self.root.mainloop()
