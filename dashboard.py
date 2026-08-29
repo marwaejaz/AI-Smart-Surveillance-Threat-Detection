@@ -9,8 +9,11 @@ load_dotenv()
 from detector import Detector
 from tracker import SuspiciousTracker
 from alert_manager import AlertManager, SETTINGS
+from analytics_dashboard import AnalyticsWindow
+from log_viewer import LogViewerWindow
 
-# ── Cyber dark theme ──────────────────────────────────────────────────────────
+
+
 BG       = "#070d1a"
 PANEL    = "#0d1526"
 CARD     = "#111f35"
@@ -36,6 +39,7 @@ class LoginScreen:
     def __init__(self, on_success):
         self.on_success = on_success
         self.correct_password = os.getenv("ADMIN_PASSWORD", "admin123")
+        self.viewer_password = os.getenv("VIEWER_PASSWORD", "viewer123")
         self.root = tk.Tk()
         self.root.title("AI Surveillance — Login")
         self.root.configure(bg=BG)
@@ -77,7 +81,10 @@ class LoginScreen:
         sanitized_password = raw_input.strip()
         if sanitized_password == self.correct_password:
             self.root.destroy()
-            self.on_success()
+            self.on_success("admin")
+        elif sanitized_password == self.viewer_password:
+            self.root.destroy()
+            self.on_success("viewer")
         else:
             self.err_lbl.config(text="⚠ Incorrect password. Try again.")
             self.pwd_var.set("")
@@ -86,10 +93,11 @@ class LoginScreen:
 
 
 class SurveillanceDashboard:
-    def __init__(self):
+    def __init__(self, role="admin"):
         self.root = tk.Tk()
         self.root.title("AI Smart Surveillance System — ADVANCED v2.0")
         self.root.configure(bg=BG)
+        self.role = role
         self.root.geometry("1440x860")
         self.root.resizable(True, True)
 
@@ -114,22 +122,20 @@ class SurveillanceDashboard:
         self._zone_start   = None
         self._zone_name    = ""
 
-        # Alert toast queue
+     
         self._toasts = []
 
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # UI BUILD
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _build_ui(self):
-        # ── Header ────────────────────────────────────────────────────────────
+    
         hdr = tk.Frame(self.root, bg=PANEL, height=58)
         hdr.pack(fill="x", side="top")
         hdr.pack_propagate(False)
 
-        # Blinking dot
+    
         self.dot_lbl = tk.Label(hdr, text="⬤", bg=PANEL, fg=RED, font=("Arial",12))
         self.dot_lbl.pack(side="left", padx=(16,4), pady=16)
         self._blink_dot()
@@ -137,7 +143,7 @@ class SurveillanceDashboard:
         tk.Label(hdr, text="AI SMART SURVEILLANCE — ADVANCED",
                  bg=PANEL, fg=CYAN, font=("Courier",17,"bold")).pack(side="left", pady=16)
 
-        # Right side info
+        
         self.clock_lbl = tk.Label(hdr, bg=PANEL, fg=MUTED, font=("Courier",11))
         self.clock_lbl.pack(side="right", padx=16)
         self._tick_clock()
@@ -151,7 +157,7 @@ class SurveillanceDashboard:
 
         tk.Frame(self.root, bg=CYAN, height=2).pack(fill="x", side="top")
 
-        # ── Bottom controls ────────────────────────────────────────────────────
+        
         bottom = tk.Frame(self.root, bg=PANEL, height=56)
         bottom.pack(fill="x", side="bottom")
         bottom.pack_propagate(False)
@@ -174,7 +180,10 @@ class SurveillanceDashboard:
         self.btn_zone = ctrl_btn(bottom, "📐  Draw Zone", self._start_zone_draw, fg=CYAN)
         self.btn_zone.pack(side="left", padx=4, pady=10)
 
-        ctrl_btn(bottom, "🗑  Clear Zones", self._clear_zones, fg=MUTED).pack(side="left", padx=4, pady=10)
+        self.btn_clear = ctrl_btn(bottom, "🗑 Clear Zones", self._clear_zones, fg=MUTED)
+        self.btn_clear.pack(side="left", padx=4, pady=10)
+        ctrl_btn(bottom, " Analytics", self._open_analytics, fg=CYAN).pack(side="left", padx=4, pady=10)
+        ctrl_btn(bottom, "🔍 Search Log", self._open_log_viewer, fg=CYAN).pack(side="left", padx=4, pady=10)
 
         tk.Frame(bottom, bg=BORDER, width=1).pack(side="left", fill="y", padx=10, pady=10)
 
@@ -202,6 +211,7 @@ class SurveillanceDashboard:
         middle.pack(fill="both", expand=True)
         self._build_video_panel(middle)
         self._build_right_panel(middle)
+        self._apply_role_restrictions()
 
     # ── Video Panel ───────────────────────────────────────────────────────────
     def _build_video_panel(self, parent):
@@ -302,9 +312,11 @@ class SurveillanceDashboard:
         setting_row(sfrm, "Crowd limit",  self._crowd_var, 2, 10, AMBER)
         setting_row(sfrm, "Suspicious s", self._susp_var,  5, 30, PURPLE)
 
-        tk.Button(sfrm, text="Apply", bg=CYAN, fg="#000",
+        self.btn_apply = tk.Button(sfrm, text="Apply", bg=CYAN, fg="#000",
                   font=("Courier",9,"bold"), relief="flat", cursor="hand2",
-                  command=self._apply_settings).pack(anchor="e", pady=(4,0))
+                  command=self._apply_settings)
+        self.btn_apply.pack(anchor="e", pady=(4,0))
+        
 
         tk.Frame(right, bg=BORDER, height=1).pack(fill="x", pady=8)
 
@@ -344,9 +356,7 @@ class SurveillanceDashboard:
         tk.Label(c, textvariable=var, bg=CARD, fg=color,
                  font=("Courier",28,"bold")).pack(anchor="w")
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # SETTINGS
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _apply_settings(self):
         self.detector.confidence = self._conf_var.get() / 100.0
         SETTINGS["crowd_threshold"] = self._crowd_var.get()
@@ -354,9 +364,7 @@ class SurveillanceDashboard:
         self.tracker.SUSPICIOUS_TIME = self._susp_var.get()
         self._log("⚙ Settings applied", CYAN)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ZONE DRAWING
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _start_zone_draw(self):
         if not self.running:
             messagebox.showinfo("Info", "Pehle camera start karo!")
@@ -399,9 +407,7 @@ class SurveillanceDashboard:
         self.var_zones.set("0"); self.stats["zones"] = 0
         self.zone_hint.config(text=""); self._log("🗑 Zones cleared", MUTED)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # TOGGLES
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _toggle_night(self):
         self.detector.night_mode = self._night_var.get()
         self._log(f"🌙 Night mode {'ON' if self.detector.night_mode else 'OFF'}", CYAN)
@@ -418,9 +424,7 @@ class SurveillanceDashboard:
             self._cam2_container.pack_forget()
             if self.cap2: self.cap2.release(); self.cap2 = None
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # CAMERA
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _start_camera(self):
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
@@ -453,9 +457,7 @@ class SurveillanceDashboard:
         self.stats["persons"] = 0; self.var_persons.set("0")
         self._start_time = None
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # CAPTURE LOOP
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _capture_loop(self):
         while self.running:
             ret, frame = self.cap.read()
@@ -540,9 +542,7 @@ class SurveillanceDashboard:
             if not self.frame_queue2.full():
                 self.frame_queue2.put(frame)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # UI LOOPS
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _ui_loop(self):
         if not self.running: return
         self._update_video(self.video_lbl, self.frame_queue)
@@ -591,9 +591,7 @@ class SurveillanceDashboard:
         self.uptime_lbl.config(text=f"Uptime: {h:02d}:{m:02d}:{s:02d}  |")
         self.root.after(1000, self._uptime_loop)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # HELPERS
-    # ─────────────────────────────────────────────────────────────────────────
+    
     def _log(self, msg, color=None):
         ts = time.strftime("%H:%M:%S")
         self.log_box.insert("end", f"[{ts}] {msg}")
@@ -606,6 +604,16 @@ class SurveillanceDashboard:
         path = os.path.join(os.path.dirname(__file__), "snapshots")
         os.makedirs(path, exist_ok=True)
         os.startfile(path)
+    def _apply_role_restrictions(self):
+        if self.role != "viewer":
+            return
+        for btn in (self.btn_start, self.btn_zone, self.btn_clear, self.btn_apply):
+            btn.config(state="disabled", bg=CARD2, fg=MUTED)    
+
+    def _open_analytics(self):
+        AnalyticsWindow(self.root)
+    def _open_log_viewer(self):
+        LogViewerWindow(self.root)
 
     def _blink_dot(self):
         current = self.dot_lbl.cget("fg")

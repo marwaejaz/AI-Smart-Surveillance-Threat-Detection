@@ -42,3 +42,29 @@ def get_logs(limit=100):
     rows = cursor.fetchall()
     conn.close()
     return rows
+def get_summary_counts():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM activity_log")
+    total = cursor.fetchone()[0]
+    cursor.execute("SELECT alert_type, COUNT(*) FROM activity_log GROUP BY alert_type")
+    by_type = dict(cursor.fetchall())
+    conn.close()
+    return total, by_type
+
+
+def get_daily_counts(days=7):
+    import datetime
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT substr(timestamp, 1, 10) AS day, COUNT(*) FROM activity_log GROUP BY day")
+    counts = dict(cursor.fetchall())
+    conn.close()
+    today = datetime.date.today()
+    result = []
+    for i in range(days - 1, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        key = d.isoformat()
+        result.append((key, counts.get(key, 0)))
+    return result
+ 
