@@ -1,21 +1,3 @@
-"""
-analytics_dashboard.py
-Week 3 — Advanced Feature: Analytics & Reporting Dashboard
-
-Opens as a separate window from the main dashboard. Reads everything
-from the SAME SQLite database (security_system.db) your Week 2 work
-already set up — no changes to your camera loop, detector, or tracker.
-
-Shows:
-  - Total events + a breakdown by alert type (weapon / suspicious / crowd / zone)
-  - A simple bar chart of events per day for the last 7 days (drawn with
-    plain Tkinter Canvas — no matplotlib install needed)
-  - A manual "Refresh" button
-
-Wire it into dashboard.py with 2 small additions — see WIRING NOTES at
-the bottom of this file.
-"""
-
 import tkinter as tk
 import database as db
 
@@ -151,29 +133,3 @@ class AnalyticsWindow(tk.Toplevel):
             self.canvas.create_text(x + bar_w / 2, pad_top + chart_h + 12,
                                      text=day_label, fill=MUTED, font=("Courier", 8))
             x += bar_w + gap
-
-
-# ─────────────────────────────────────────────────────────────────────
-# WIRING NOTES — two small edits to dashboard.py, nothing else changes
-# ─────────────────────────────────────────────────────────────────────
-#
-# 1) Near the top, alongside your other local imports:
-#
-#       from analytics_dashboard import AnalyticsWindow
-#
-# 2) In SurveillanceDashboard._build_ui(), find the row where
-#    "🗑 Clear Zones" is added (inside the `bottom` controls bar), and
-#    add one more button right after it:
-#
-#       ctrl_btn(bottom, "📊 Analytics", self._open_analytics, fg=CYAN).pack(
-#           side="left", padx=4, pady=10)
-#
-#    Then add this method anywhere inside the SurveillanceDashboard class
-#    (e.g. right next to _open_snapshots):
-#
-#       def _open_analytics(self):
-#           AnalyticsWindow(self.root)
-#
-# That's it — no changes to detector.py, tracker.py, alert_manager.py,
-# or your camera capture loop. The button opens a separate window that
-# only reads from security_system.db.
