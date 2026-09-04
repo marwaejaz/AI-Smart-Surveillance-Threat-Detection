@@ -1,5 +1,6 @@
 import database
 import time, threading, os, csv, smtplib, cv2
+import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -38,7 +39,7 @@ EMAIL_CONFIG = {
     "smtp_host": "smtp.gmail.com",
     "smtp_port": 587,
 }
-
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 SETTINGS = {
     "crowd_threshold": 4,
     "suspicious_time": 10,
@@ -150,6 +151,15 @@ class AlertManager:
                 print(f"[Email] Failed: {e}")
         threading.Thread(target=_run, daemon=True).start()
 
+    def _send_discord(self, message):
+        if not DISCORD_WEBHOOK_URL:
+            return
+        def _run():
+            try:
+                requests.post(DISCORD_WEBHOOK_URL, json={"content": message}, timeout=5)
+            except Exception as e:
+                print(f"[Discord] Failed: {e}")
+        threading.Thread(target=_run, daemon=True).start()
     # ── PUBLIC ALERTS ─────────────────────────────────────────────────────────
 
     def weapon_alert(self, label, frame=None):
@@ -162,6 +172,7 @@ class AlertManager:
         self._speak(f"Warning! {label} detected! Evacuate the area immediately!")
         self._add_notification(msg, (220,40,40), 7, ALERT_WEAPON)
         self._log_csv(ALERT_WEAPON, label, snap)
+        self._send_discord(f"🔪 {msg}")
         self._send_email(f"[ALERT] Weapon: {label}",
             f"Weapon: {label.upper()}\nTime: {time.strftime('%Y-%m-%d %H:%M:%S')}", snap)
         print(f"[ALERT] {msg}")
@@ -176,6 +187,7 @@ class AlertManager:
         self._speak(f"Suspicious behavior! Person {person_id} has been stationary for over 10 seconds.")
         self._add_notification(msg, (210,110,0), 7, ALERT_SUSPICIOUS)
         self._log_csv(ALERT_SUSPICIOUS, f"Person #{person_id}", snap)
+        self._send_discord(f"⚠ {msg}")
         print(f"[ALERT] {msg}")
 
     def crowd_alert(self, count, frame=None):
@@ -188,6 +200,7 @@ class AlertManager:
         self._speak(f"Crowd alert! {count} persons detected.")
         self._add_notification(msg, (150,50,200), 6, ALERT_CROWD)
         self._log_csv(ALERT_CROWD, f"{count} persons", snap)
+        self._send_discord(f"👥 {msg}")
         print(f"[ALERT] {msg}")
 
     def zone_breach_update(self, zone_name, person_in_zone, frame=None):
@@ -209,6 +222,7 @@ class AlertManager:
                     self._speak(f"Warning! Restricted area {zone_name}. Please leave this area immediately!")
                     self._add_notification(msg, (200, 0, 100), 6, ALERT_ZONE)
                     self._log_csv(ALERT_ZONE, f"{zone_name} - entry", "")
+                    self._send_discord(f"📐 {msg}")
                     print(f"[ALERT] {msg}")
             else:
                 # Check 10 sec escalation
@@ -221,6 +235,7 @@ class AlertManager:
                     self._speak(f"Security alert! Person in restricted area {zone_name} for {int(duration)} seconds. Immediate security response required!")
                     self._add_notification(msg, (255, 0, 0), 9, ALERT_ZONE)
                     self._log_csv(ALERT_ZONE, f"{zone_name} escalated {int(duration)}s", snap)
+                    self._send_discord(f"🚨 {msg}")
                     self._send_email(
                         f"[ESCALATION] Zone: {zone_name}",
                         f"Person in restricted zone '{zone_name}' for {int(duration)}s.\nTime: {time.strftime('%Y-%m-%d %H:%M:%S')}",
