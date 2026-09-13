@@ -16,6 +16,8 @@ def init_db():
             snapshot TEXT
         )
     """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alert_type ON activity_log(alert_type)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON activity_log(timestamp)")
     conn.commit()
     conn.close()
 

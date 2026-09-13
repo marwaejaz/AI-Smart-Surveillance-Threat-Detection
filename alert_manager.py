@@ -153,10 +153,13 @@ class AlertManager:
 
     def _send_discord(self, message):
         if not DISCORD_WEBHOOK_URL:
+            print("[Discord] Skipped — DISCORD_WEBHOOK_URL not set in .env")
             return
         def _run():
             try:
-                requests.post(DISCORD_WEBHOOK_URL, json={"content": message}, timeout=5)
+                resp = requests.post(DISCORD_WEBHOOK_URL, json={"content": message}, timeout=5)
+                if resp.status_code != 204:
+                    print(f"[Discord] Unexpected response: {resp.status_code} {resp.text}")
             except Exception as e:
                 print(f"[Discord] Failed: {e}")
         threading.Thread(target=_run, daemon=True).start()
