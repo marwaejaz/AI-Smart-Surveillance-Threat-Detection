@@ -1,0 +1,9 @@
+opencv-python
+ultralytics
+pillow
+python-dotenv
+requests
+
+# Optional (text-to-speech alerts) — app runs fine without these
+pygame
+pyttsx3
